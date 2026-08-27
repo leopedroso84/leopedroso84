@@ -1,0 +1,57 @@
+name: shortcut-backup-drive
+
+on:
+  push:
+    branches:
+      - tmp-shortcut-audit-20260824
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Shortcuts backups
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p backup-shortcuts
+          python3 - <<'PY'
+          import urllib.request, json, pathlib, hashlib
+
+          shortcuts = {
+              'Rotina - Backup aprovado 102188.shortcut': '1021889dd92844f38c35131a70b70bbb',
+              'Rotina - Atual com almoco 9d128.shortcut': '9d128294f93d4fb5939fe8186f381000',
+          }
+          out = pathlib.Path('backup-shortcuts')
+          manifest = []
+
+          def get(url):
+              req = urllib.request.Request(url, headers={'User-Agent':'Mozilla/5.0 shortcut-backup'})
+              with urllib.request.urlopen(req, timeout=40) as r:
+                  return r.read()
+
+          for filename, sid in shortcuts.items():
+              rec = json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
+              dl = rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
+              raw = get(dl)
+              (out / filename).write_bytes(raw)
+              manifest.append(f'{filename}\n  iCloud ID: {sid}\n  SHA256: {hashlib.sha256(raw).hexdigest()}\n  Bytes: {len(raw)}')
+
+          (out / 'LEIA-ME.txt').write_text(
+              'BACKUP DA ROTINA DO ATALHOS\n\n' +
+              '\n\n'.join(manifest) +
+              '\n\nObservacao: estes arquivos preservam o conteudo subjacente do atalho baixado do iCloud.\n',
+              encoding='utf-8'
+          )
+          PY
+
+      - name: Upload backup artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Rotina-Shortcuts-Backup-2026-08-27
+          path: backup-shortcuts/
+          compression-level: 0
+          retention-days: 90
