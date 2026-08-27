@@ -1,0 +1,38 @@
+BASE_COUNT=185 CURRENT_COUNT=185
+IDENTICAL_SEMANTIC=True
+POSITIONAL_DIFFS=[]
+OPCODES=[]
+FOLGA_OCCURRENCES=0 DESCANSO_OCCURRENCES=3
+
+FOCUS_ACTIONS:
+ (146, 'Descanso', 0, None)
+ (147, 'Sono', 1, None)
+ (149, 'Sono', False, None)
+ (151, 'Descanso', False, None)
+ (153, 'Descanso', True, None)
+ (166, 'Sono', 1, 'Time')
+ (172, 'Sono', 1, 'Time')
+ (175, 'Sono', 1, 'Time')
+ (180, 'Sono', 1, 'Time')
+
+CALENDAR_SEARCHES:
+ C23: {"WFContentItemFilter": {"Value": {"WFActionParameterFilterPrefix": 1, "WFActionParameterFilterTemplates": [{"Operator": 1003, "Property": "Start Date", "Removable": true, "Values": {"AnotherDate": {"Value": {"OutputName": "Data Ajustada", "Type": "ActionOutput"}, "WFSerializationType": "WFTextTokenAttachment"}, "Date": {"Value": {"OutputName": "Data Ajustada", "Type": "ActionOutput"}, "WFSerializationType": "WFTextTokenAttachment"}}}, {"Operator": 4, "Property": "Is All Day", "Removable": true, "Values": {"Bool": true}}], "WFContentPredicateBoundedDate": false}, "WFSerializationType": "WFContentPredicateTableTemplate"}}
+ C24: {"WFContentItemFilter": {"Value": {"WFActionParameterFilterPrefix": 1, "WFActionParameterFilterTemplates": [{"Operator": 1003, "Property": "Start Date", "Removable": true, "Values": {"AnotherDate": {"Value": {"OutputName": "Data Ajustada", "Type": "ActionOutput"}, "WFSerializationType": "WFTextTokenAttachment"}, "Date": {"Value": {"OutputName": "Data Ajustada", "Type": "ActionOutput"}, "WFSerializationType": "WFTextTokenAttachment"}}}, {"Operator": 4, "Property": "Is All Day", "Removable": true, "Values": {"Bool": true}}], "WFContentPredicateBoundedDate": false}, "WFSerializationType": "WFContentPredicateTableTemplate"}}
+
+CHECKS:
+PASS | action_count_185 | 185
+PASS | semantic_identity_to_70fc | opcodes=[]
+PASS | no_action_type_count_changes
+PASS | no_Folga_focus_actions | []
+PASS | no_Folga_text_anywhere | occurrences=0
+PASS | Descanso_focus_actions_3 | [(146, 'Descanso', 0, None), (151, 'Descanso', False, None), (153, 'Descanso', True, None)]
+PASS | focus_total_9 | 9
+PASS | timed_Sono_4 | [(166, 'Sono', 1, 'Time'), (172, 'Sono', 1, 'Time'), (175, 'Sono', 1, 'Time'), (180, 'Sono', 1, 'Time')]
+PASS | calendar_searches_2 | 2
+PASS | focus_layout_exact | [(146, 'Descanso', 0, None), (147, 'Sono', 1, None), (149, 'Sono', False, None), (151, 'Descanso', False, None), (153, 'Descanso', True, None), (166, 'Sono', 1, 'Time'), (172, 'Sono', 1, 'Time'), (175, 'Sono', 1, 'Time'), (180, 'Sono', 1, 'Time')]
+PASS | working_region_85_113_exact
+PASS | plantao_feriado_region_114_137_exact
+PASS | focus_region_139_155_exact
+PASS | alarm_sleep_region_156_184_exact
+
+RESULT=14/14 PASS
