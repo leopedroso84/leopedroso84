@@ -1,0 +1,73 @@
+INDEX 139 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '9EB99A94-83E4-4E44-B362-8BBC500DB5A1',
+ 'WFCondition': 4,
+ 'WFControlFlowMode': 0,
+ 'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'Type': 'Variable', 'VariableName': 'plantao_agora'}, 'WFSerializationType': 'WFTextTokenAttachment'}},
+ 'WFNumberValue': '1'}
+INDEX 140 IDENT com.apple.ShortcutsActions.SetSilentModeAction
+{'AppIntentDescriptor': {'AppIntentIdentifier': 'SetSilentModeAction',
+                         'BundleIdentifier': 'com.apple.ShortcutsActions',
+                         'Name': 'ShortcutsActions',
+                         'TeamIdentifier': '0000000000'},
+ 'UUID': '237A4E1C-B628-4933-A65D-23D1E113EA6A',
+ 'operation': 'turn',
+ 'state': False}
+INDEX 141 IDENT is.workflow.actions.setvolume
+{'WFVolume': 1.0, 'WFVolumeSetting': 'Ringtone'}
+INDEX 142 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '9EB99A94-83E4-4E44-B362-8BBC500DB5A1', 'WFControlFlowMode': 1}
+INDEX 143 IDENT com.apple.ShortcutsActions.SetSilentModeAction
+{'AppIntentDescriptor': {'AppIntentIdentifier': 'SetSilentModeAction',
+                         'BundleIdentifier': 'com.apple.ShortcutsActions',
+                         'Name': 'ShortcutsActions',
+                         'TeamIdentifier': '0000000000'},
+ 'UUID': '47650FA8-B776-4338-9706-1896339EA6CC',
+ 'operation': 'turn',
+ 'state': True}
+INDEX 144 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '9EB99A94-83E4-4E44-B362-8BBC500DB5A1', 'UUID': '212A6DEB-4716-42AB-9834-5C487077E76D', 'WFControlFlowMode': 2}
+INDEX 145 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '26613510-6951-4D56-B44D-BF3D99CE77A9',
+ 'WFConditions': {'Value': {'WFActionParameterFilterPrefix': 0,
+                            'WFActionParameterFilterTemplates': [{'WFCondition': 3,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'OutputName': 'Resultado do Cálculo',
+                                                                                                     'OutputUUID': '5DE1746B-68F1-4ADE-87F5-9A22497ADB04',
+                                                                                                     'Type': 'ActionOutput'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '22'},
+                                                                 {'WFCondition': 0,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'OutputName': 'Resultado do Cálculo',
+                                                                                                     'OutputUUID': '5DE1746B-68F1-4ADE-87F5-9A22497ADB04',
+                                                                                                     'Type': 'ActionOutput'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '8'}],
+                            'WFContentPredicateBoundedDate': False},
+                  'WFSerializationType': 'WFContentPredicateTableTemplate'},
+ 'WFControlFlowMode': 0}
+INDEX 146 IDENT is.workflow.actions.dnd.set
+{'Enabled': 0, 'FocusModes': {'DisplayString': 'Descanso', 'Identifier': 'com.apple.donotdisturb.mode.starfill'}, 'Operation': 'Turn'}
+INDEX 147 IDENT is.workflow.actions.dnd.set
+{'Enabled': 1, 'FocusModes': {'DisplayString': 'Sono', 'Identifier': 'com.apple.sleep.sleep-mode'}, 'Operation': 'Turn'}
+INDEX 148 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '26613510-6951-4D56-B44D-BF3D99CE77A9', 'WFControlFlowMode': 1}
+INDEX 149 IDENT is.workflow.actions.dnd.set
+{'Enabled': False, 'FocusModes': {'DisplayString': 'Sono', 'Identifier': 'com.apple.sleep.sleep-mode'}, 'Operation': 'Turn'}
+INDEX 150 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '6FEEE6D9-38DA-429A-875E-245B305DA0D8',
+ 'WFCondition': 4,
+ 'WFControlFlowMode': 0,
+ 'WFInput': {'Type': 'Variable',
+             'Variable': {'Value': {'Type': 'Variable', 'VariableName': 'trabalhando_agora'}, 'WFSerializationType': 'WFTextTokenAttachment'}},
+ 'WFNumberValue': '1'}
+INDEX 151 IDENT is.workflow.actions.dnd.set
+{'Enabled': False, 'FocusModes': {'DisplayString': 'Descanso', 'Identifier': 'com.apple.donotdisturb.mode.starfill'}, 'Operation': 'Turn'}
+INDEX 152 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '6FEEE6D9-38DA-429A-875E-245B305DA0D8', 'WFControlFlowMode': 1}
+INDEX 153 IDENT is.workflow.actions.dnd.set
+{'Enabled': True, 'FocusModes': {'DisplayString': 'Descanso', 'Identifier': 'com.apple.donotdisturb.mode.starfill'}, 'Operation': 'Turn'}
+INDEX 154 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '6FEEE6D9-38DA-429A-875E-245B305DA0D8', 'UUID': '5348CB40-2CEA-45BE-A4C5-76E125F6665A', 'WFControlFlowMode': 2}
+INDEX 155 IDENT is.workflow.actions.conditional
+{'GroupingIdentifier': '26613510-6951-4D56-B44D-BF3D99CE77A9', 'UUID': '4AC3B6F1-62C1-4576-A13F-B6C4B5FBB5D3', 'WFControlFlowMode': 2}
