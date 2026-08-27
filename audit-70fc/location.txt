@@ -1,0 +1,18 @@
+140: com.apple.ShortcutsActions.SetSilentModeAction
+141: is.workflow.actions.setvolume
+142: is.workflow.actions.conditional mode=1 cond=None num=None
+143: com.apple.ShortcutsActions.SetSilentModeAction
+144: is.workflow.actions.conditional mode=2 cond=None num=None
+145: is.workflow.actions.conditional mode=0 cond=None num=None
+146: is.workflow.actions.dnd.set focus=Descanso enabled=0 assertion=None
+147: is.workflow.actions.dnd.set focus=Sono enabled=1 assertion=None
+148: is.workflow.actions.conditional mode=1 cond=None num=None
+149: is.workflow.actions.dnd.set focus=Sono enabled=False assertion=None
+150: is.workflow.actions.conditional mode=0 cond=4 num=1 input={'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'trabalhando_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+151: is.workflow.actions.dnd.set focus=Descanso enabled=False assertion=None
+152: is.workflow.actions.conditional mode=1 cond=None num=None
+153: is.workflow.actions.dnd.set focus=Descanso enabled=True assertion=None
+154: is.workflow.actions.conditional mode=2 cond=None num=None
+155: is.workflow.actions.conditional mode=2 cond=None num=None
+156: is.workflow.actions.conditional mode=0 cond=3 num=22 input={'Type': 'Variable', 'Variable': {'Value': {'OutputUUID': '5DE1746B-68F1-4ADE-87F5-9A22497ADB04', 'Type': 'ActionOutput', 'OutputName': 'Resultado do Cálculo'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+157: com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent
