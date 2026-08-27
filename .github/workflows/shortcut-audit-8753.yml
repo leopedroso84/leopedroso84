@@ -17,15 +17,15 @@ jobs:
         with:
           ref: tmp-shortcut-audit-20260824
 
-      - name: Compare approved 467d with current 8753
+      - name: Audit 9d128 lunch block against approved 102188
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf audit-out && mkdir audit-out
+          rm -rf audit-9d128 && mkdir audit-9d128
           python3 - <<'PY'
-          import urllib.request, json, plistlib, pathlib, collections
-          OUT=pathlib.Path('audit-out')
-          IDS={'approved':'467d9e38ec924eaab9e2750e15492238','current':'8753b2ab74d942dea502033f89249f43'}
+          import urllib.request, json, plistlib, pathlib, pprint
+          OUT=pathlib.Path('audit-9d128')
+          IDS={'base':'1021889dd92844f38c35131a70b70bbb','current':'9d128294f93d4fb5939fe8186f381000'}
           def get(u):
               req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-audit'})
               with urllib.request.urlopen(req,timeout=40) as r:return r.read()
@@ -33,8 +33,8 @@ jobs:
           for n,sid in IDS.items():
               rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
               dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
-              raw=get(dl); objs[n]=plistlib.loads(raw)
-          B=objs['approved']['WFWorkflowActions']; C=objs['current']['WFWorkflowActions']
+              objs[n]=plistlib.loads(get(dl))
+          B=objs['base']['WFWorkflowActions']; C=objs['current']['WFWorkflowActions']
           def ident(a): return a.get('WFWorkflowActionIdentifier','?')
           def p(a): return a.get('WFWorkflowActionParameters',{})
           def norm(x):
@@ -42,43 +42,80 @@ jobs:
               if isinstance(x,list): return [norm(v) for v in x]
               if isinstance(x,bytes): return x.hex()
               return x
-          def focus(a):
-              q=p(a); fm=q.get('FocusModes') or {}
-              return {'name':fm.get('DisplayString'),'id':fm.get('Identifier'),'enabled':q.get('Enabled'),'assertion':q.get('AssertionType')}
-          def cal_filters(a):
-              try:
-                  ts=p(a)['WFContentItemFilter']['Value']['WFActionParameterFilterTemplates']
-                  return [(t.get('Property'),t.get('Values')) for t in ts]
-              except Exception: return []
-          diffs=[]
-          for i,(a,b) in enumerate(zip(B,C)):
-              if ident(a)!=ident(b) or norm(p(a))!=norm(p(b)):
-                  diffs.append(i)
+          # strict semantic preservation of the approved original 185 actions
+          prefix_diffs=[]
+          for i in range(min(len(B),len(C),185)):
+              if ident(B[i])!=ident(C[i]) or norm(p(B[i]))!=norm(p(C[i])):
+                  prefix_diffs.append(i)
+
+          lines=[]
+          def add(s): lines.append(s)
+          add(f'BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}')
+          add(f'PREFIX_0_184_DIFFS={prefix_diffs}')
+          add(f'PREFIX_IDENTICAL={len(B)==185 and len(C)>=185 and not prefix_diffs}')
+          add('')
+          add('SUFFIX_ACTIONS:')
+          for i,a in enumerate(C[185:],185):
+              add(f'{i}: {ident(a)}')
+              add(pprint.pformat(norm(p(a)),width=140,sort_dicts=True))
+
           checks=[]
           def ck(name,ok,detail=''): checks.append((name,bool(ok),detail))
-          ck('same action count',len(B)==len(C)==185,f'{len(B)}->{len(C)}')
-          ck('same action identifiers',all(ident(a)==ident(b) for a,b in zip(B,C)),'')
-          ck('exactly 3 differing actions',diffs==[146,151,153],f'{diffs}')
-          focus_ok=True; fdetail=[]
-          for i in [146,151,153]:
-              fb,fc=focus(B[i]),focus(C[i]); fdetail.append((i,fb,fc))
-              focus_ok &= (fb['name']=='Folga' and fc['name']=='Descanso' and fb['enabled']==fc['enabled'] and fb['assertion']==fc['assertion'])
-          ck('3 differences are only Folga -> Descanso preserving state',focus_ok,str(fdetail))
-          bc=collections.Counter(ident(a) for a in B); cc=collections.Counter(ident(a) for a in C)
-          ck('conditions unchanged',cc['is.workflow.actions.conditional']==bc['is.workflow.actions.conditional']==92,str(cc['is.workflow.actions.conditional']))
-          ck('alarms unchanged',cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==bc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==6,str(cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']))
-          ck('calendar searches unchanged',cc['is.workflow.actions.filter.calendarevents']==bc['is.workflow.actions.filter.calendarevents']==2,str(cc['is.workflow.actions.filter.calendarevents']))
-          cals=[(i,cal_filters(a)) for i,a in enumerate(C) if ident(a)=='is.workflow.actions.filter.calendarevents']
-          ck('both calendar searches have only Start Date + Is All Day',len(cals)==2 and all([x[0] for x in fs]==['Start Date','Is All Day'] for _,fs in cals),str(cals))
-          ck('focus action count unchanged',cc['is.workflow.actions.dnd.set']==bc['is.workflow.actions.dnd.set']==9,str(cc['is.workflow.actions.dnd.set']))
-          timed=[]
-          for i,a in enumerate(C):
-              if ident(a)=='is.workflow.actions.dnd.set':
-                  q=p(a)
-                  if q.get('AssertionType')=='Time': timed.append(i)
-          ck('4 timed Sleep actions unchanged',timed==[166,172,175,180],str(timed))
-          report='\n'.join(('PASS' if ok else 'FAIL')+f' | {n} | {d}' for n,ok,d in checks)
-          report+=f"\n\nTOTAL={len(checks)} PASS={sum(ok for _,ok,_ in checks)} FAIL={sum(not ok for _,ok,_ in checks)}\nDIFFS={diffs}\n"
+          ck('approved_base_count_185',len(B)==185,str(len(B)))
+          ck('current_count_194',len(C)==194,str(len(C)))
+          ck('original_185_semantically_untouched',len(C)>=185 and not prefix_diffs,str(prefix_diffs))
+
+          S=C[185:]
+          expected_ids=[
+            'is.workflow.actions.date',
+            'is.workflow.actions.format.date',
+            'is.workflow.actions.setvariable',
+            'is.workflow.actions.conditional',
+            'is.workflow.actions.adjustdate',
+            'is.workflow.actions.setvariable',
+            'is.workflow.actions.dnd.set',
+            'is.workflow.actions.conditional',
+            'is.workflow.actions.conditional',
+          ]
+          ck('suffix_action_types_exact',len(S)==9 and [ident(a) for a in S]==expected_ids,str([ident(a) for a in S]))
+
+          if len(S)==9:
+              # Data Atual
+              q0=p(S[0]); ck('date_is_current',q0.get('WFDateActionMode') in (None,'Current Date') or 'Current' in str(q0),str(norm(q0)))
+              # Format H
+              q1=p(S[1]); q1s=str(norm(q1)); ck('format_custom_hour_H',('H' in q1s) and ('Custom' in q1s or 'Personalizado' in q1s or q1.get('WFDateFormat')=='Custom'),q1s)
+              # hora_almoco
+              q2=p(S[2]); ck('setvar_hora_almoco',q2.get('WFVariableName')=='hora_almoco',str(norm(q2)))
+              # conditional ALL + five requested variable names and numbers
+              q3=p(S[3]); q3s=str(norm(q3))
+              vars_needed=['hora_almoco','trabalhando_agora','plantao_agora','tem_feriado_hoje','eh_cinzas_hoje']
+              ck('conditional_has_all_5_variables',all(v in q3s for v in vars_needed),q3s)
+              ck('conditional_is_ALL',q3.get('WFCondition') is None and 'WFConditions' in q3,q3s)
+              # adjust +2 hours from Data Atual: verify operation, 2, Hours and source not hora_almoco
+              q4=p(S[4]); q4s=str(norm(q4))
+              ck('adjust_add_2_hours',('2' in q4s and 'Hour' in q4s and ('Add' in q4s or 'Adicionar' in q4s)),q4s)
+              ck('adjust_source_not_hora_almoco','hora_almoco' not in q4s,q4s)
+              # fim_almoco comes from Data Ajustada action output (not hora_almoco)
+              q5=p(S[5]); q5s=str(norm(q5))
+              ck('setvar_fim_almoco',q5.get('WFVariableName')=='fim_almoco',q5s)
+              ck('fim_almoco_from_adjusted_date','hora_almoco' not in q5s and ('Data Ajustada' in q5s or 'Adjusted Date' in q5s or 'ActionOutput' in q5s),q5s)
+              # Focus Descanso timed using fim_almoco
+              q6=p(S[6]); q6s=str(norm(q6)); fm=q6.get('FocusModes') or {}
+              ck('focus_is_Descanso',fm.get('DisplayString')=='Descanso',q6s)
+              ck('focus_enabled',q6.get('Enabled') in (True,1),q6s)
+              ck('focus_assertion_time',q6.get('AssertionType')=='Time',q6s)
+              ck('focus_uses_fim_almoco','fim_almoco' in q6s,q6s)
+              # else/end are immediately after focus => focus is inside true branch
+              q7=p(S[7]); q8=p(S[8])
+              ck('else_immediately_after_focus',ident(S[7])=='is.workflow.actions.conditional' and q7.get('WFControlFlowMode')==1,str(norm(q7)))
+              ck('end_immediately_after_else',ident(S[8])=='is.workflow.actions.conditional' and q8.get('WFControlFlowMode')==2,str(norm(q8)))
+
+          add('')
+          add('CHECKS:')
+          for n,ok,d in checks: add(('PASS' if ok else 'FAIL')+f' | {n} | {d}')
+          add('')
+          add(f'RESULT={sum(ok for _,ok,_ in checks)}/{len(checks)} PASS; FAIL={sum(not ok for _,ok,_ in checks)}')
+          report='\n'.join(lines)
           (OUT/'checks.txt').write_text(report,encoding='utf-8')
           print(report)
           PY
@@ -88,6 +125,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit-out
-          git commit -m "audit 8753 results" || exit 0
+          git add audit-9d128
+          git commit -m "audit 9d128 lunch results" || exit 0
           git push origin HEAD:tmp-shortcut-audit-20260824
