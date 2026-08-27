@@ -1,0 +1,93 @@
+name: shortcut-audit-70fc
+
+on:
+  push:
+    branches:
+      - tmp-shortcut-audit-20260824
+
+permissions:
+  contents: write
+
+jobs:
+  audit:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-shortcut-audit-20260824
+
+      - name: Compare approved 467d with current 70fc
+        shell: bash
+        run: |
+          set -euo pipefail
+          rm -rf audit-70fc && mkdir audit-70fc
+          python3 - <<'PY'
+          import urllib.request, json, plistlib, pathlib, collections
+          OUT=pathlib.Path('audit-70fc')
+          IDS={'approved':'467d9e38ec924eaab9e2750e15492238','current':'70fc71200eee41bab952cc233c5bd57d'}
+          def get(u):
+              req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-audit'})
+              with urllib.request.urlopen(req,timeout=40) as r:return r.read()
+          objs={}
+          for n,sid in IDS.items():
+              rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
+              dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
+              raw=get(dl); objs[n]=plistlib.loads(raw)
+          B=objs['approved']['WFWorkflowActions']; C=objs['current']['WFWorkflowActions']
+          def ident(a): return a.get('WFWorkflowActionIdentifier','?')
+          def p(a): return a.get('WFWorkflowActionParameters',{})
+          def norm(x):
+              if isinstance(x,dict): return {k:norm(v) for k,v in x.items() if k not in {'UUID','GroupingIdentifier','OutputUUID'}}
+              if isinstance(x,list): return [norm(v) for v in x]
+              if isinstance(x,bytes): return x.hex()
+              return x
+          def focus(a):
+              q=p(a); fm=q.get('FocusModes') or {}
+              return {'name':fm.get('DisplayString'),'id':fm.get('Identifier'),'enabled':q.get('Enabled'),'assertion':q.get('AssertionType')}
+          def cal_filters(a):
+              try:
+                  ts=p(a)['WFContentItemFilter']['Value']['WFActionParameterFilterTemplates']
+                  return [(t.get('Property'),t.get('Values')) for t in ts]
+              except Exception:return []
+          diffs=[]
+          for i,(a,b) in enumerate(zip(B,C)):
+              if ident(a)!=ident(b) or norm(p(a))!=norm(p(b)):
+                  diffs.append(i)
+          checks=[]
+          def ck(name,ok,detail=''): checks.append((name,bool(ok),detail))
+          ck('same action count',len(B)==len(C)==185,f'{len(B)}->{len(C)}')
+          ck('same action identifiers',all(ident(a)==ident(b) for a,b in zip(B,C)),'')
+          ck('exactly 3 differing actions',diffs==[146,151,153],f'{diffs}')
+          focus_ok=True; fdetail=[]
+          for i in [146,151,153]:
+              fb,fc=focus(B[i]),focus(C[i]); fdetail.append((i,fb,fc))
+              focus_ok &= (fb['name']=='Folga' and fc['name']=='Descanso' and fb['enabled']==fc['enabled'] and fb['assertion']==fc['assertion'])
+          ck('3 differences are only Folga -> Descanso preserving state',focus_ok,str(fdetail))
+          bc=collections.Counter(ident(a) for a in B); cc=collections.Counter(ident(a) for a in C)
+          ck('conditions unchanged',cc['is.workflow.actions.conditional']==bc['is.workflow.actions.conditional']==92,str(cc['is.workflow.actions.conditional']))
+          ck('alarms unchanged',cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==bc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==6,str(cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']))
+          ck('calendar searches unchanged',cc['is.workflow.actions.filter.calendarevents']==bc['is.workflow.actions.filter.calendarevents']==2,str(cc['is.workflow.actions.filter.calendarevents']))
+          cals=[(i,cal_filters(a)) for i,a in enumerate(C) if ident(a)=='is.workflow.actions.filter.calendarevents']
+          ck('both calendar searches have only Start Date + Is All Day',len(cals)==2 and all([x[0] for x in fs]==['Start Date','Is All Day'] for _,fs in cals),str(cals))
+          ck('focus action count unchanged',cc['is.workflow.actions.dnd.set']==bc['is.workflow.actions.dnd.set']==9,str(cc['is.workflow.actions.dnd.set']))
+          timed=[]
+          for i,a in enumerate(C):
+              if ident(a)=='is.workflow.actions.dnd.set':
+                  q=p(a)
+                  if q.get('AssertionType')=='Time': timed.append(i)
+          ck('4 timed Sleep actions unchanged',timed==[166,172,175,180],str(timed))
+          report='\n'.join(('PASS' if ok else 'FAIL')+f' | {n} | {d}' for n,ok,d in checks)
+          report+=f"\n\nTOTAL={len(checks)} PASS={sum(ok for _,ok,_ in checks)} FAIL={sum(not ok for _,ok,_ in checks)}\nDIFFS={diffs}\n"
+          (OUT/'checks.txt').write_text(report,encoding='utf-8')
+          print(report)
+          PY
+
+      - name: Commit results
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audit-70fc
+          git commit -m "audit 70fc results" || exit 0
+          git push origin HEAD:tmp-shortcut-audit-20260824
