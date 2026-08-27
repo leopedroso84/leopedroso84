@@ -1,0 +1,53 @@
+BASE_COUNT=185 CURRENT_COUNT=185
+IDENTICAL=False
+POSITIONAL_DIFFS=[121, 122, 123, 124, 125, 126]
+OPCODES=[('delete', 121, 123, 121, 121), ('insert', 127, 127, 125, 127)]
+
+OP delete base[121:123] current[121:121]
+ B121: COND mode=2 cond=None num=None input={}
+ B122: COND mode=1 cond=4 num=1 input={'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'tem_feriado_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+
+OP insert base[127:127] current[125:127]
+ C125: COND mode=2 cond=None num=None input={}
+ C126: COND mode=1 cond=4 num=1 input={'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'tem_feriado_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+
+COUNTS_CHANGED:
+
+CURRENT_FOCUS:
+ C146: FOCUS Descanso enabled=0 assertion=None
+ C147: FOCUS Sono enabled=1 assertion=None
+ C149: FOCUS Sono enabled=False assertion=None
+ C151: FOCUS Descanso enabled=False assertion=None
+ C153: FOCUS Descanso enabled=True assertion=None
+ C166: FOCUS Sono enabled=1 assertion=Time
+ C172: FOCUS Sono enabled=1 assertion=Time
+ C175: FOCUS Sono enabled=1 assertion=Time
+ C180: FOCUS Sono enabled=1 assertion=Time
+
+CURRENT_REGION_135_160:
+ C135: SETVAR plantao_agora
+ C136: COND mode=2 cond=None num=None input={}
+ C137: COND mode=2 cond=None num=None input={}
+ C138: COND mode=2 cond=None num=None input={}
+ C139: COND mode=0 cond=4 num=1 input={'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'plantao_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+ C140: com.apple.ShortcutsActions.SetSilentModeAction
+ C141: is.workflow.actions.setvolume
+ C142: COND mode=1 cond=None num=None input={}
+ C143: com.apple.ShortcutsActions.SetSilentModeAction
+ C144: COND mode=2 cond=None num=None input={}
+ C145: COND mode=0 cond=None num=None input={}
+ C146: FOCUS Descanso enabled=0 assertion=None
+ C147: FOCUS Sono enabled=1 assertion=None
+ C148: COND mode=1 cond=None num=None input={}
+ C149: FOCUS Sono enabled=False assertion=None
+ C150: COND mode=0 cond=4 num=1 input={'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'trabalhando_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+ C151: FOCUS Descanso enabled=False assertion=None
+ C152: COND mode=1 cond=None num=None input={}
+ C153: FOCUS Descanso enabled=True assertion=None
+ C154: COND mode=2 cond=None num=None input={}
+ C155: COND mode=2 cond=None num=None input={}
+ C156: COND mode=0 cond=3 num=22 input={'Type': 'Variable', 'Variable': {'Value': {'OutputUUID': '5DE1746B-68F1-4ADE-87F5-9A22497ADB04', 'Type': 'ActionOutput', 'OutputName': 'Resultado do Cálculo'}, 'WFSerializationType': 'WFTextTokenAttachment'}}
+ C157: ALARM com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent
+ C158: ALARM com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent
+ C159: is.workflow.actions.adjustdate
+ C160: SETVAR sono_0700
