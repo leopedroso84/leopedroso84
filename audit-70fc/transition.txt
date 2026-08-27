@@ -1,0 +1,32 @@
+85: COND mode=0 ALL nums=['8', '18']
+86: NUMBER 1
+87: SETVAR trabalhando_agora
+88: COND mode=2 input= cond=None num=None
+89: COND mode=1 input=Resultado do Cálculo cond=4 num=5
+90: COND mode=0 ALL nums=['12', '20']
+91: NUMBER 1
+92: SETVAR trabalhando_agora
+93: COND mode=2 input= cond=None num=None
+94: COND mode=1 input=Resultado do Cálculo cond=4 num=6
+95: COND mode=0 ALL nums=['8', '20']
+96: NUMBER 1
+97: SETVAR trabalhando_agora
+98: COND mode=2 input= cond=None num=None
+99: COND mode=2 input= cond=None num=None
+100: COND mode=1 input= cond=None num=None
+101: COND mode=0 input=Resultado do Cálculo cond=1 num=4
+102: COND mode=0 ALL nums=['8', '18']
+103: NUMBER 1
+104: SETVAR trabalhando_agora
+105: COND mode=2 input= cond=None num=None
+106: COND mode=1 input=Resultado do Cálculo cond=4 num=5
+107: COND mode=0 ALL nums=['8', '12']
+108: NUMBER 1
+109: SETVAR trabalhando_agora
+110: COND mode=2 input= cond=None num=None
+111: COND mode=2 input= cond=None num=None
+112: COND mode=2 input= cond=None num=None
+113: COND mode=2 input= cond=None num=None
+114: NUMBER 0
+115: SETVAR plantao_agora
+116: COND mode=0 input=minha_semana_hoje cond=4 num=1
