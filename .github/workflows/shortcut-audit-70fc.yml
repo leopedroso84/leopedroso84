@@ -23,7 +23,7 @@ jobs:
           set -euo pipefail
           rm -rf audit-e396 && mkdir audit-e396
           python3 - <<'PY'
-          import urllib.request, json, plistlib, pathlib, collections, difflib
+          import urllib.request, json, plistlib, pathlib, difflib
           OUT=pathlib.Path('audit-e396')
           IDS={'approved':'70fc71200eee41bab952cc233c5bd57d','current':'e3969d6c0f164083b41cd2f6f8129368'}
           def get(u):
@@ -33,7 +33,7 @@ jobs:
           for n,sid in IDS.items():
               rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
               dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
-              raw=get(dl); objs[n]=plistlib.loads(raw)
+              objs[n]=plistlib.loads(get(dl))
           B=objs['approved']['WFWorkflowActions']; C=objs['current']['WFWorkflowActions']
           def ident(a): return a.get('WFWorkflowActionIdentifier','?')
           def p(a): return a.get('WFWorkflowActionParameters',{})
@@ -43,41 +43,31 @@ jobs:
               if isinstance(x,bytes): return x.hex()
               return x
           def sig(a): return ident(a)+'|'+json.dumps(norm(p(a)),sort_keys=True,ensure_ascii=False,default=str)
+          def input_desc(q):
+              x=q.get('WFInput',{})
+              try:
+                  v=x.get('Variable',{}).get('Value',{})
+                  return v.get('VariableName') or v.get('OutputName') or 'output'
+              except: return ''
           def short(a):
-              q=p(a); i=ident(a)
+              q=p(a); i=ident(a); gid=q.get('GroupingIdentifier','')
+              gs=gid[-6:] if gid else '-'
               if i=='is.workflow.actions.conditional':
-                  return f"COND mode={q.get('WFControlFlowMode')} cond={q.get('WFCondition')} num={q.get('WFNumberValue')} input={q.get('WFInput',{})}"
-              if i=='is.workflow.actions.setvariable': return f"SETVAR {q.get('WFVariableName')}"
-              if i=='is.workflow.actions.number': return f"NUMBER {q.get('WFNumberActionNumber')}"
+                  return f"COND m={q.get('WFControlFlowMode')} c={q.get('WFCondition')} n={q.get('WFNumberValue')} in={input_desc(q)} gid={gs}"
+              if i=='is.workflow.actions.setvariable': return f"SETVAR {q.get('WFVariableName')} gid={gs}"
+              if i=='is.workflow.actions.number': return f"NUMBER {q.get('WFNumberActionNumber')} gid={gs}"
+              if i=='is.workflow.actions.calculate': return f"CALCULATE {q.get('WFMathOperation')} gid={gs}"
               if i=='is.workflow.actions.dnd.set':
-                  fm=q.get('FocusModes') or {}; return f"FOCUS {fm.get('DisplayString')} enabled={q.get('Enabled')} assertion={q.get('AssertionType')}"
-              if i=='is.workflow.actions.filter.calendarevents': return 'CALENDAR_SEARCH'
-              if 'Alarm' in i or 'alarm' in i: return 'ALARM '+i
-              return i
+                  fm=q.get('FocusModes') or {}; return f"FOCUS {fm.get('DisplayString')} enabled={q.get('Enabled')} gid={gs}"
+              return f"{i} gid={gs}"
           sm=difflib.SequenceMatcher(a=[sig(x) for x in B],b=[sig(x) for x in C],autojunk=False)
           ops=[x for x in sm.get_opcodes() if x[0]!='equal']
-          diffs=[]
-          for i,(a,b) in enumerate(zip(B,C)):
-              if sig(a)!=sig(b): diffs.append(i)
-          bc=collections.Counter(ident(a) for a in B); cc=collections.Counter(ident(a) for a in C)
-          lines=[]
-          lines.append(f"BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}")
-          lines.append(f"IDENTICAL={ [sig(x) for x in B] == [sig(x) for x in C] }")
-          lines.append(f"POSITIONAL_DIFFS={diffs}")
-          lines.append(f"OPCODES={ops}")
-          for tag,i1,i2,j1,j2 in ops:
-              lines.append(f"\nOP {tag} base[{i1}:{i2}] current[{j1}:{j2}]")
-              for i in range(i1,i2): lines.append(f" B{i}: {short(B[i])}")
-              for j in range(j1,j2): lines.append(f" C{j}: {short(C[j])}")
-          lines.append('\nCOUNTS_CHANGED:')
-          for k in sorted(set(bc)|set(cc)):
-              if bc[k]!=cc[k]: lines.append(f" {k}: {bc[k]}->{cc[k]}")
-          lines.append('\nCURRENT_FOCUS:')
-          for j,a in enumerate(C):
-              if ident(a)=='is.workflow.actions.dnd.set': lines.append(f" C{j}: {short(a)}")
-          lines.append('\nCURRENT_REGION_135_160:')
-          for j in range(max(0,135),min(len(C),161)): lines.append(f" C{j}: {short(C[j])}")
-          (OUT/'checks.txt').write_text('\n'.join(lines),encoding='utf-8')
+          lines=[f'BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}',f'OPCODES={ops}']
+          lines.append('\nBASE_REGION_108_137:')
+          for i in range(108,138): lines.append(f' B{i}: {short(B[i])}')
+          lines.append('\nCURRENT_REGION_108_137:')
+          for i in range(108,138): lines.append(f' C{i}: {short(C[i])}')
+          (OUT/'region.txt').write_text('\n'.join(lines),encoding='utf-8')
           print('\n'.join(lines))
           PY
 
@@ -87,5 +77,5 @@ jobs:
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add audit-e396
-          git commit -m "audit e396 results" || exit 0
+          git commit -m "audit e396 region" || exit 0
           git push origin HEAD:tmp-shortcut-audit-20260824
