@@ -17,15 +17,15 @@ jobs:
         with:
           ref: tmp-shortcut-audit-20260824
 
-      - name: Compare approved 467d with current 70fc
+      - name: Compare approved 70fc with current e396
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf audit-70fc && mkdir audit-70fc
+          rm -rf audit-e396 && mkdir audit-e396
           python3 - <<'PY'
-          import urllib.request, json, plistlib, pathlib, collections
-          OUT=pathlib.Path('audit-70fc')
-          IDS={'approved':'467d9e38ec924eaab9e2750e15492238','current':'70fc71200eee41bab952cc233c5bd57d'}
+          import urllib.request, json, plistlib, pathlib, collections, difflib
+          OUT=pathlib.Path('audit-e396')
+          IDS={'approved':'70fc71200eee41bab952cc233c5bd57d','current':'e3969d6c0f164083b41cd2f6f8129368'}
           def get(u):
               req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-audit'})
               with urllib.request.urlopen(req,timeout=40) as r:return r.read()
@@ -42,45 +42,43 @@ jobs:
               if isinstance(x,list): return [norm(v) for v in x]
               if isinstance(x,bytes): return x.hex()
               return x
-          def focus(a):
-              q=p(a); fm=q.get('FocusModes') or {}
-              return {'name':fm.get('DisplayString'),'id':fm.get('Identifier'),'enabled':q.get('Enabled'),'assertion':q.get('AssertionType')}
-          def cal_filters(a):
-              try:
-                  ts=p(a)['WFContentItemFilter']['Value']['WFActionParameterFilterTemplates']
-                  return [(t.get('Property'),t.get('Values')) for t in ts]
-              except Exception:return []
+          def sig(a): return ident(a)+'|'+json.dumps(norm(p(a)),sort_keys=True,ensure_ascii=False,default=str)
+          def short(a):
+              q=p(a); i=ident(a)
+              if i=='is.workflow.actions.conditional':
+                  return f"COND mode={q.get('WFControlFlowMode')} cond={q.get('WFCondition')} num={q.get('WFNumberValue')} input={q.get('WFInput',{})}"
+              if i=='is.workflow.actions.setvariable': return f"SETVAR {q.get('WFVariableName')}"
+              if i=='is.workflow.actions.number': return f"NUMBER {q.get('WFNumberActionNumber')}"
+              if i=='is.workflow.actions.dnd.set':
+                  fm=q.get('FocusModes') or {}; return f"FOCUS {fm.get('DisplayString')} enabled={q.get('Enabled')} assertion={q.get('AssertionType')}"
+              if i=='is.workflow.actions.filter.calendarevents': return 'CALENDAR_SEARCH'
+              if 'Alarm' in i or 'alarm' in i: return 'ALARM '+i
+              return i
+          sm=difflib.SequenceMatcher(a=[sig(x) for x in B],b=[sig(x) for x in C],autojunk=False)
+          ops=[x for x in sm.get_opcodes() if x[0]!='equal']
           diffs=[]
           for i,(a,b) in enumerate(zip(B,C)):
-              if ident(a)!=ident(b) or norm(p(a))!=norm(p(b)):
-                  diffs.append(i)
-          checks=[]
-          def ck(name,ok,detail=''): checks.append((name,bool(ok),detail))
-          ck('same action count',len(B)==len(C)==185,f'{len(B)}->{len(C)}')
-          ck('same action identifiers',all(ident(a)==ident(b) for a,b in zip(B,C)),'')
-          ck('exactly 3 differing actions',diffs==[146,151,153],f'{diffs}')
-          focus_ok=True; fdetail=[]
-          for i in [146,151,153]:
-              fb,fc=focus(B[i]),focus(C[i]); fdetail.append((i,fb,fc))
-              focus_ok &= (fb['name']=='Folga' and fc['name']=='Descanso' and fb['enabled']==fc['enabled'] and fb['assertion']==fc['assertion'])
-          ck('3 differences are only Folga -> Descanso preserving state',focus_ok,str(fdetail))
+              if sig(a)!=sig(b): diffs.append(i)
           bc=collections.Counter(ident(a) for a in B); cc=collections.Counter(ident(a) for a in C)
-          ck('conditions unchanged',cc['is.workflow.actions.conditional']==bc['is.workflow.actions.conditional']==92,str(cc['is.workflow.actions.conditional']))
-          ck('alarms unchanged',cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==bc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']==6,str(cc['com.apple.mobiletimer-framework.MobileTimerIntents.MTToggleAlarmIntent']))
-          ck('calendar searches unchanged',cc['is.workflow.actions.filter.calendarevents']==bc['is.workflow.actions.filter.calendarevents']==2,str(cc['is.workflow.actions.filter.calendarevents']))
-          cals=[(i,cal_filters(a)) for i,a in enumerate(C) if ident(a)=='is.workflow.actions.filter.calendarevents']
-          ck('both calendar searches have only Start Date + Is All Day',len(cals)==2 and all([x[0] for x in fs]==['Start Date','Is All Day'] for _,fs in cals),str(cals))
-          ck('focus action count unchanged',cc['is.workflow.actions.dnd.set']==bc['is.workflow.actions.dnd.set']==9,str(cc['is.workflow.actions.dnd.set']))
-          timed=[]
-          for i,a in enumerate(C):
-              if ident(a)=='is.workflow.actions.dnd.set':
-                  q=p(a)
-                  if q.get('AssertionType')=='Time': timed.append(i)
-          ck('4 timed Sleep actions unchanged',timed==[166,172,175,180],str(timed))
-          report='\n'.join(('PASS' if ok else 'FAIL')+f' | {n} | {d}' for n,ok,d in checks)
-          report+=f"\n\nTOTAL={len(checks)} PASS={sum(ok for _,ok,_ in checks)} FAIL={sum(not ok for _,ok,_ in checks)}\nDIFFS={diffs}\n"
-          (OUT/'checks.txt').write_text(report,encoding='utf-8')
-          print(report)
+          lines=[]
+          lines.append(f"BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}")
+          lines.append(f"IDENTICAL={ [sig(x) for x in B] == [sig(x) for x in C] }")
+          lines.append(f"POSITIONAL_DIFFS={diffs}")
+          lines.append(f"OPCODES={ops}")
+          for tag,i1,i2,j1,j2 in ops:
+              lines.append(f"\nOP {tag} base[{i1}:{i2}] current[{j1}:{j2}]")
+              for i in range(i1,i2): lines.append(f" B{i}: {short(B[i])}")
+              for j in range(j1,j2): lines.append(f" C{j}: {short(C[j])}")
+          lines.append('\nCOUNTS_CHANGED:')
+          for k in sorted(set(bc)|set(cc)):
+              if bc[k]!=cc[k]: lines.append(f" {k}: {bc[k]}->{cc[k]}")
+          lines.append('\nCURRENT_FOCUS:')
+          for j,a in enumerate(C):
+              if ident(a)=='is.workflow.actions.dnd.set': lines.append(f" C{j}: {short(a)}")
+          lines.append('\nCURRENT_REGION_135_160:')
+          for j in range(max(0,135),min(len(C),161)): lines.append(f" C{j}: {short(C[j])}")
+          (OUT/'checks.txt').write_text('\n'.join(lines),encoding='utf-8')
+          print('\n'.join(lines))
           PY
 
       - name: Commit results
@@ -88,6 +86,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit-70fc
-          git commit -m "audit 70fc results" || exit 0
+          git add audit-e396
+          git commit -m "audit e396 results" || exit 0
           git push origin HEAD:tmp-shortcut-audit-20260824
