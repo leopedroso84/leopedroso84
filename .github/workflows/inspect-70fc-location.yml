@@ -12,45 +12,32 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: tmp-shortcut-audit-20260824
-      - name: Inspect working-to-plantao transition
+      - name: Inspect lunch insertion region
         shell: bash
         run: |
           python3 - <<'PY'
-          import urllib.request,json,plistlib,pathlib
-          sid='70fc71200eee41bab952cc233c5bd57d'
+          import urllib.request,json,plistlib,pathlib,pprint
+          sid='1021889dd92844f38c35131a70b70bbb'
           def get(u):
               req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-inspect'})
               with urllib.request.urlopen(req,timeout=40) as r:return r.read()
           rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
           dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
           A=plistlib.loads(get(dl))['WFWorkflowActions']
-          def desc(i,a):
-              ident=a.get('WFWorkflowActionIdentifier','?'); p=a.get('WFWorkflowActionParameters',{})
-              if ident=='is.workflow.actions.conditional':
-                  mode=p.get('WFControlFlowMode'); cond=p.get('WFCondition'); num=p.get('WFNumberValue'); inp=p.get('WFInput',{})
-                  name=''
-                  try:
-                      v=inp.get('Variable',{}).get('Value',{})
-                      name=v.get('VariableName') or v.get('OutputName') or ''
-                  except: pass
-                  if p.get('WFConditions'):
-                      ts=p['WFConditions']['Value']['WFActionParameterFilterTemplates']
-                      vals=[t.get('WFNumberValue') for t in ts]
-                      return f'{i}: COND mode={mode} ALL nums={vals}'
-                  return f'{i}: COND mode={mode} input={name} cond={cond} num={num}'
-              if ident=='is.workflow.actions.number': return f"{i}: NUMBER {p.get('WFNumberActionNumber')}"
-              if ident=='is.workflow.actions.setvariable': return f"{i}: SETVAR {p.get('WFVariableName')}"
-              return f'{i}: {ident}'
-          out='\n'.join(desc(i,A[i]) for i in range(85,117))
-          pathlib.Path('audit-70fc').mkdir(exist_ok=True)
-          pathlib.Path('audit-70fc/transition.txt').write_text(out,encoding='utf-8')
-          print(out)
+          out=[]
+          for i in range(139,156):
+              a=A[i]; ident=a.get('WFWorkflowActionIdentifier','?'); p=a.get('WFWorkflowActionParameters',{})
+              out.append(f'INDEX {i} IDENT {ident}')
+              out.append(pprint.pformat(p,width=160,sort_dicts=True))
+          pathlib.Path('audit-102188').mkdir(exist_ok=True)
+          pathlib.Path('audit-102188/lunch-region.txt').write_text('\n'.join(out),encoding='utf-8')
+          print('\n'.join(out))
           PY
       - name: Commit result
         shell: bash
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit-70fc/transition.txt
-          git commit -m "inspect working plantao transition" || exit 0
+          git add audit-102188/lunch-region.txt
+          git commit -m "inspect lunch insertion region" || exit 0
           git push origin HEAD:tmp-shortcut-audit-20260824
