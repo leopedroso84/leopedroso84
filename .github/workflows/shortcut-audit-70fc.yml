@@ -17,15 +17,15 @@ jobs:
         with:
           ref: tmp-shortcut-audit-20260824
 
-      - name: Compare approved 70fc with current e396
+      - name: Audit 102188 against approved 70fc
         shell: bash
         run: |
           set -euo pipefail
-          rm -rf audit-e396 && mkdir audit-e396
+          rm -rf audit-102188 && mkdir audit-102188
           python3 - <<'PY'
-          import urllib.request, json, plistlib, pathlib, difflib
-          OUT=pathlib.Path('audit-e396')
-          IDS={'approved':'70fc71200eee41bab952cc233c5bd57d','current':'e3969d6c0f164083b41cd2f6f8129368'}
+          import urllib.request, json, plistlib, pathlib, collections, difflib
+          OUT=pathlib.Path('audit-102188')
+          IDS={'approved':'70fc71200eee41bab952cc233c5bd57d','current':'1021889dd92844f38c35131a70b70bbb'}
           def get(u):
               req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-audit'})
               with urllib.request.urlopen(req,timeout=40) as r:return r.read()
@@ -33,41 +33,80 @@ jobs:
           for n,sid in IDS.items():
               rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
               dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
-              objs[n]=plistlib.loads(get(dl))
+              raw=get(dl)
+              objs[n]=plistlib.loads(raw)
           B=objs['approved']['WFWorkflowActions']; C=objs['current']['WFWorkflowActions']
           def ident(a): return a.get('WFWorkflowActionIdentifier','?')
           def p(a): return a.get('WFWorkflowActionParameters',{})
           def norm(x):
-              if isinstance(x,dict): return {k:norm(v) for k,v in x.items() if k not in {'UUID','GroupingIdentifier','OutputUUID'}}
+              if isinstance(x,dict):
+                  return {k:norm(v) for k,v in x.items() if k not in {'UUID','GroupingIdentifier','OutputUUID'}}
               if isinstance(x,list): return [norm(v) for v in x]
               if isinstance(x,bytes): return x.hex()
               return x
           def sig(a): return ident(a)+'|'+json.dumps(norm(p(a)),sort_keys=True,ensure_ascii=False,default=str)
-          def input_desc(q):
-              x=q.get('WFInput',{})
-              try:
-                  v=x.get('Variable',{}).get('Value',{})
-                  return v.get('VariableName') or v.get('OutputName') or 'output'
-              except: return ''
-          def short(a):
-              q=p(a); i=ident(a); gid=q.get('GroupingIdentifier','')
-              gs=gid[-6:] if gid else '-'
-              if i=='is.workflow.actions.conditional':
-                  return f"COND m={q.get('WFControlFlowMode')} c={q.get('WFCondition')} n={q.get('WFNumberValue')} in={input_desc(q)} gid={gs}"
-              if i=='is.workflow.actions.setvariable': return f"SETVAR {q.get('WFVariableName')} gid={gs}"
-              if i=='is.workflow.actions.number': return f"NUMBER {q.get('WFNumberActionNumber')} gid={gs}"
-              if i=='is.workflow.actions.calculate': return f"CALCULATE {q.get('WFMathOperation')} gid={gs}"
-              if i=='is.workflow.actions.dnd.set':
-                  fm=q.get('FocusModes') or {}; return f"FOCUS {fm.get('DisplayString')} enabled={q.get('Enabled')} gid={gs}"
-              return f"{i} gid={gs}"
-          sm=difflib.SequenceMatcher(a=[sig(x) for x in B],b=[sig(x) for x in C],autojunk=False)
+          def focus_info(a):
+              q=p(a); fm=q.get('FocusModes') or {}
+              return (fm.get('DisplayString'),q.get('Enabled'),q.get('AssertionType'))
+          bs=[sig(x) for x in B]; cs=[sig(x) for x in C]
+          sm=difflib.SequenceMatcher(a=bs,b=cs,autojunk=False)
           ops=[x for x in sm.get_opcodes() if x[0]!='equal']
-          lines=[f'BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}',f'OPCODES={ops}']
-          lines.append('\nBASE_REGION_108_137:')
-          for i in range(108,138): lines.append(f' B{i}: {short(B[i])}')
-          lines.append('\nCURRENT_REGION_108_137:')
-          for i in range(108,138): lines.append(f' C{i}: {short(C[i])}')
-          (OUT/'region.txt').write_text('\n'.join(lines),encoding='utf-8')
+          positional=[i for i,(a,b) in enumerate(zip(bs,cs)) if a!=b]
+          bc=collections.Counter(ident(a) for a in B); cc=collections.Counter(ident(a) for a in C)
+          # Full-text scan of current action parameters for focus names.
+          current_text=json.dumps(norm(C),ensure_ascii=False,sort_keys=True,default=str)
+          folga_occ=current_text.lower().count('folga')
+          descanso_occ=current_text.lower().count('descanso')
+          # Focus actions
+          focus=[]
+          for i,a in enumerate(C):
+              if ident(a)=='is.workflow.actions.dnd.set': focus.append((i,)+focus_info(a))
+          timed_sono=[x for x in focus if x[1]=='Sono' and x[3]=='Time']
+          descanso=[x for x in focus if x[1]=='Descanso']
+          folga=[x for x in focus if x[1]=='Folga']
+          # Calendar searches and selected structural windows
+          cal=[]
+          for i,a in enumerate(C):
+              if ident(a)=='is.workflow.actions.filter.calendarevents':
+                  cal.append((i,norm(p(a))))
+          checks=[]
+          def ck(name,ok,detail=''):
+              checks.append((name,bool(ok),detail))
+          ck('action_count_185',len(C)==185,f'{len(C)}')
+          ck('semantic_identity_to_70fc',bs==cs,f'opcodes={ops}')
+          ck('no_action_type_count_changes',bc==cc,'')
+          ck('no_Folga_focus_actions',len(folga)==0,f'{folga}')
+          ck('no_Folga_text_anywhere',folga_occ==0,f'occurrences={folga_occ}')
+          ck('Descanso_focus_actions_3',len(descanso)==3,f'{descanso}')
+          ck('focus_total_9',len(focus)==9,f'{len(focus)}')
+          ck('timed_Sono_4',len(timed_sono)==4,f'{timed_sono}')
+          ck('calendar_searches_2',len(cal)==2,f'{len(cal)}')
+          # exact expected focus layout from approved base, semantic comparison already guarantees states/positions,
+          # but spell it out so result is easy to read.
+          exp_focus=[(146,'Descanso',0,None),(147,'Sono',1,None),(149,'Sono',False,None),(151,'Descanso',False,None),(153,'Descanso',True,None),(166,'Sono',1,'Time'),(172,'Sono',1,'Time'),(175,'Sono',1,'Time'),(180,'Sono',1,'Time')]
+          ck('focus_layout_exact',focus==exp_focus,f'{focus}')
+          # regions previously disturbed must now match approved exactly
+          def region_equal(lo,hi): return bs[lo:hi+1]==cs[lo:hi+1]
+          ck('working_region_85_113_exact',region_equal(85,113),'')
+          ck('plantao_feriado_region_114_137_exact',region_equal(114,137),'')
+          ck('focus_region_139_155_exact',region_equal(139,155),'')
+          ck('alarm_sleep_region_156_184_exact',region_equal(156,184),'')
+          passed=sum(ok for _,ok,_ in checks)
+          lines=[]
+          lines.append(f'BASE_COUNT={len(B)} CURRENT_COUNT={len(C)}')
+          lines.append(f'IDENTICAL_SEMANTIC={bs==cs}')
+          lines.append(f'POSITIONAL_DIFFS={positional}')
+          lines.append(f'OPCODES={ops}')
+          lines.append(f'FOLGA_OCCURRENCES={folga_occ} DESCANSO_OCCURRENCES={descanso_occ}')
+          lines.append('\nFOCUS_ACTIONS:')
+          for x in focus: lines.append(f' {x}')
+          lines.append('\nCALENDAR_SEARCHES:')
+          for i,q in cal: lines.append(f' C{i}: {json.dumps(q,ensure_ascii=False,sort_keys=True,default=str)}')
+          lines.append('\nCHECKS:')
+          for name,ok,detail in checks:
+              lines.append(f"{'PASS' if ok else 'FAIL'} | {name}" + (f' | {detail}' if detail else ''))
+          lines.append(f'\nRESULT={passed}/{len(checks)} PASS')
+          (OUT/'checks.txt').write_text('\n'.join(lines),encoding='utf-8')
           print('\n'.join(lines))
           PY
 
@@ -76,6 +115,6 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add audit-e396
-          git commit -m "audit e396 region" || exit 0
+          git add audit-102188
+          git commit -m "audit 102188 results" || exit 0
           git push origin HEAD:tmp-shortcut-audit-20260824
