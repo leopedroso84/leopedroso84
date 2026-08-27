@@ -1,0 +1,13 @@
+PASS | same action count | 185->185
+PASS | same action identifiers | 
+PASS | exactly 3 differing actions | [146, 151, 153]
+PASS | 3 differences are only Folga -> Descanso preserving state | [(146, {'name': 'Folga', 'id': 'com.apple.donotdisturb.mode.emojifacegrinning', 'enabled': 0, 'assertion': None}, {'name': 'Descanso', 'id': 'com.apple.donotdisturb.mode.starfill', 'enabled': 0, 'assertion': None}), (151, {'name': 'Folga', 'id': 'com.apple.donotdisturb.mode.emojifacegrinning', 'enabled': False, 'assertion': None}, {'name': 'Descanso', 'id': 'com.apple.donotdisturb.mode.starfill', 'enabled': False, 'assertion': None}), (153, {'name': 'Folga', 'id': 'com.apple.donotdisturb.mode.emojifacegrinning', 'enabled': True, 'assertion': None}, {'name': 'Descanso', 'id': 'com.apple.donotdisturb.mode.starfill', 'enabled': True, 'assertion': None})]
+PASS | conditions unchanged | 92
+PASS | alarms unchanged | 6
+PASS | calendar searches unchanged | 2
+PASS | both calendar searches have only Start Date + Is All Day | [(23, [('Start Date', {'Date': {'Value': {'OutputUUID': 'CE183AB6-B465-4F29-9F08-D2BF13A6898C', 'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}, 'AnotherDate': {'Value': {'OutputUUID': '3EB75FB8-3E8B-4CAA-A9A4-ACFFB33AA1F5', 'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}}), ('Is All Day', {'Bool': True})]), (24, [('Start Date', {'Date': {'Value': {'OutputUUID': 'BCA3DC0C-7043-4839-AE2C-B38BCDE65933', 'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}, 'AnotherDate': {'Value': {'OutputUUID': 'F19FCBBA-6C43-4514-B859-1B634855D7BA', 'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}}), ('Is All Day', {'Bool': True})])]
+PASS | focus action count unchanged | 9
+PASS | 4 timed Sleep actions unchanged | [166, 172, 175, 180]
+
+TOTAL=10 PASS=10 FAIL=0
+DIFFS=[146, 151, 153]
