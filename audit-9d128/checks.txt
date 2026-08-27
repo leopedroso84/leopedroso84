@@ -1,0 +1,90 @@
+BASE_COUNT=185 CURRENT_COUNT=194
+PREFIX_0_184_DIFFS=[]
+PREFIX_IDENTICAL=True
+
+SUFFIX_ACTIONS:
+185: is.workflow.actions.date
+{}
+186: is.workflow.actions.format.date
+{'WFDate': {'Value': {'attachmentsByRange': {'{0, 1}': {'OutputName': 'Data', 'Type': 'ActionOutput'}}, 'string': '￼'},
+            'WFSerializationType': 'WFTextTokenString'},
+ 'WFDateFormat': 'H',
+ 'WFDateFormatStyle': 'Custom'}
+187: is.workflow.actions.setvariable
+{'WFInput': {'Value': {'OutputName': 'Data Formatada', 'Type': 'ActionOutput'}, 'WFSerializationType': 'WFTextTokenAttachment'},
+ 'WFVariableName': 'hora_almoco'}
+188: is.workflow.actions.conditional
+{'WFConditions': {'Value': {'WFActionParameterFilterPrefix': 1,
+                            'WFActionParameterFilterTemplates': [{'WFCondition': 4,
+                                                                  'WFConditionalActionString': '12',
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'Type': 'Variable',
+                                                                                                     'VariableName': 'hora_almoco'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}}},
+                                                                 {'WFCondition': 4,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'Type': 'Variable',
+                                                                                                     'VariableName': 'trabalhando_agora'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '1'},
+                                                                 {'WFCondition': 4,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'Type': 'Variable',
+                                                                                                     'VariableName': 'plantao_agora'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '0'},
+                                                                 {'WFCondition': 4,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'Type': 'Variable',
+                                                                                                     'VariableName': 'tem_feriado_hoje'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '0'},
+                                                                 {'WFCondition': 4,
+                                                                  'WFInput': {'Type': 'Variable',
+                                                                              'Variable': {'Value': {'Type': 'Variable',
+                                                                                                     'VariableName': 'eh_cinzas_hoje'},
+                                                                                           'WFSerializationType': 'WFTextTokenAttachment'}},
+                                                                  'WFNumberValue': '0'}],
+                            'WFContentPredicateBoundedDate': False},
+                  'WFSerializationType': 'WFContentPredicateTableTemplate'},
+ 'WFControlFlowMode': 0}
+189: is.workflow.actions.adjustdate
+{'WFDate': {'Value': {'attachmentsByRange': {'{0, 1}': {'Type': 'CurrentDate'}}, 'string': '￼'},
+            'WFSerializationType': 'WFTextTokenString'},
+ 'WFDuration': {'Value': {'Magnitude': '2', 'Unit': 'hr'}, 'WFSerializationType': 'WFQuantityFieldValue'}}
+190: is.workflow.actions.setvariable
+{'WFInput': {'Value': {'OutputName': 'Data Ajustada', 'Type': 'ActionOutput'}, 'WFSerializationType': 'WFTextTokenAttachment'},
+ 'WFVariableName': 'fim_almoco'}
+191: is.workflow.actions.dnd.set
+{'AssertionType': 'Time',
+ 'Enabled': 1,
+ 'FocusModes': {'DisplayString': 'Descanso', 'Identifier': 'com.apple.donotdisturb.mode.starfill'},
+ 'Time': {'Value': {'attachmentsByRange': {'{0, 1}': {'Type': 'Variable', 'VariableName': 'fim_almoco'}}, 'string': '￼'},
+          'WFSerializationType': 'WFTextTokenString'}}
+192: is.workflow.actions.conditional
+{'WFControlFlowMode': 1}
+193: is.workflow.actions.conditional
+{'WFControlFlowMode': 2}
+
+CHECKS:
+PASS | approved_base_count_185 | 185
+PASS | current_count_194 | 194
+PASS | original_185_semantically_untouched | []
+PASS | suffix_action_types_exact | ['is.workflow.actions.date', 'is.workflow.actions.format.date', 'is.workflow.actions.setvariable', 'is.workflow.actions.conditional', 'is.workflow.actions.adjustdate', 'is.workflow.actions.setvariable', 'is.workflow.actions.dnd.set', 'is.workflow.actions.conditional', 'is.workflow.actions.conditional']
+PASS | date_is_current | {}
+PASS | format_custom_hour_H | {'WFDateFormatStyle': 'Custom', 'WFDateFormat': 'H', 'WFDate': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'Type': 'ActionOutput', 'OutputName': 'Data'}}}, 'WFSerializationType': 'WFTextTokenString'}}
+PASS | setvar_hora_almoco | {'WFInput': {'Value': {'Type': 'ActionOutput', 'OutputName': 'Data Formatada'}, 'WFSerializationType': 'WFTextTokenAttachment'}, 'WFVariableName': 'hora_almoco'}
+PASS | conditional_has_all_5_variables | {'WFConditions': {'Value': {'WFActionParameterFilterTemplates': [{'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'hora_almoco', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFConditionalActionString': '12'}, {'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'trabalhando_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFNumberValue': '1'}, {'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'plantao_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFNumberValue': '0'}, {'WFCondition': 4, 'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'tem_feriado_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFNumberValue': '0'}, {'WFCondition': 4, 'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'eh_cinzas_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFNumberValue': '0'}], 'WFActionParameterFilterPrefix': 1, 'WFContentPredicateBoundedDate': False}, 'WFSerializationType': 'WFContentPredicateTableTemplate'}, 'WFControlFlowMode': 0}
+PASS | conditional_is_ALL | {'WFConditions': {'Value': {'WFActionParameterFilterTemplates': [{'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'hora_almoco', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFConditionalActionString': '12'}, {'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'trabalhando_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFNumberValue': '1'}, {'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'plantao_agora', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFCondition': 4, 'WFNumberValue': '0'}, {'WFCondition': 4, 'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'tem_feriado_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFNumberValue': '0'}, {'WFCondition': 4, 'WFInput': {'Type': 'Variable', 'Variable': {'Value': {'VariableName': 'eh_cinzas_hoje', 'Type': 'Variable'}, 'WFSerializationType': 'WFTextTokenAttachment'}}, 'WFNumberValue': '0'}], 'WFActionParameterFilterPrefix': 1, 'WFContentPredicateBoundedDate': False}, 'WFSerializationType': 'WFContentPredicateTableTemplate'}, 'WFControlFlowMode': 0}
+FAIL | adjust_add_2_hours | {'WFDate': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'Type': 'CurrentDate'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'WFDuration': {'Value': {'Unit': 'hr', 'Magnitude': '2'}, 'WFSerializationType': 'WFQuantityFieldValue'}}
+PASS | adjust_source_not_hora_almoco | {'WFDate': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'Type': 'CurrentDate'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'WFDuration': {'Value': {'Unit': 'hr', 'Magnitude': '2'}, 'WFSerializationType': 'WFQuantityFieldValue'}}
+PASS | setvar_fim_almoco | {'WFInput': {'Value': {'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}, 'WFVariableName': 'fim_almoco'}
+PASS | fim_almoco_from_adjusted_date | {'WFInput': {'Value': {'Type': 'ActionOutput', 'OutputName': 'Data Ajustada'}, 'WFSerializationType': 'WFTextTokenAttachment'}, 'WFVariableName': 'fim_almoco'}
+PASS | focus_is_Descanso | {'AssertionType': 'Time', 'FocusModes': {'Identifier': 'com.apple.donotdisturb.mode.starfill', 'DisplayString': 'Descanso'}, 'Time': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'VariableName': 'fim_almoco', 'Type': 'Variable'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'Enabled': 1}
+PASS | focus_enabled | {'AssertionType': 'Time', 'FocusModes': {'Identifier': 'com.apple.donotdisturb.mode.starfill', 'DisplayString': 'Descanso'}, 'Time': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'VariableName': 'fim_almoco', 'Type': 'Variable'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'Enabled': 1}
+PASS | focus_assertion_time | {'AssertionType': 'Time', 'FocusModes': {'Identifier': 'com.apple.donotdisturb.mode.starfill', 'DisplayString': 'Descanso'}, 'Time': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'VariableName': 'fim_almoco', 'Type': 'Variable'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'Enabled': 1}
+PASS | focus_uses_fim_almoco | {'AssertionType': 'Time', 'FocusModes': {'Identifier': 'com.apple.donotdisturb.mode.starfill', 'DisplayString': 'Descanso'}, 'Time': {'Value': {'string': '￼', 'attachmentsByRange': {'{0, 1}': {'VariableName': 'fim_almoco', 'Type': 'Variable'}}}, 'WFSerializationType': 'WFTextTokenString'}, 'Enabled': 1}
+PASS | else_immediately_after_focus | {'WFControlFlowMode': 1}
+PASS | end_immediately_after_else | {'WFControlFlowMode': 2}
+
+RESULT=18/19 PASS; FAIL=1
