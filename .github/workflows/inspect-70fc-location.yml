@@ -1,0 +1,51 @@
+name: inspect-70fc-location
+on:
+  push:
+    branches: [tmp-shortcut-audit-20260824]
+permissions:
+  contents: write
+jobs:
+  inspect:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: tmp-shortcut-audit-20260824
+      - name: Inspect actions 142-156
+        shell: bash
+        run: |
+          python3 - <<'PY'
+          import urllib.request,json,plistlib,pathlib
+          sid='70fc71200eee41bab952cc233c5bd57d'
+          def get(u):
+              req=urllib.request.Request(u,headers={'User-Agent':'Mozilla/5.0 shortcut-inspect'})
+              with urllib.request.urlopen(req,timeout=40) as r:return r.read()
+          rec=json.loads(get(f'https://www.icloud.com/shortcuts/api/records/{sid}'))
+          dl=rec['fields']['shortcut']['value']['downloadURL'].replace('${f}','shortcut.plist')
+          obj=plistlib.loads(get(dl)); A=obj['WFWorkflowActions']
+          out=[]
+          for i in range(140,158):
+              a=A[i]; ident=a.get('WFWorkflowActionIdentifier','?'); p=a.get('WFWorkflowActionParameters',{})
+              s=f'{i}: {ident}'
+              if ident=='is.workflow.actions.conditional':
+                  s+=f" mode={p.get('WFControlFlowMode')} cond={p.get('WFCondition')} num={p.get('WFNumberValue')}"
+                  if 'WFInput' in p: s+=f" input={p.get('WFInput')}"
+              if ident=='is.workflow.actions.dnd.set':
+                  fm=p.get('FocusModes') or {}
+                  s+=f" focus={fm.get('DisplayString')} enabled={p.get('Enabled')} assertion={p.get('AssertionType')}"
+              if ident=='is.workflow.actions.setvariable': s+=f" var={p.get('WFVariableName')}"
+              if ident=='is.workflow.actions.number': s+=f" number={p.get('WFNumberActionNumber')}"
+              out.append(s)
+          pathlib.Path('audit-70fc').mkdir(exist_ok=True)
+          pathlib.Path('audit-70fc/location.txt').write_text('\n'.join(out),encoding='utf-8')
+          print('\n'.join(out))
+          PY
+      - name: Commit result
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add audit-70fc/location.txt
+          git commit -m "inspect exact 70fc location" || exit 0
+          git push origin HEAD:tmp-shortcut-audit-20260824
