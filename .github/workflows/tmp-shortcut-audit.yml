@@ -4,6 +4,9 @@ on:
   push:
     branches:
       - tmp-shortcut-audit-a18e4bc4-20260830
+  pull_request:
+    branches:
+      - main
 
 jobs:
   audit:
@@ -14,7 +17,7 @@ jobs:
         run: |
           set -euo pipefail
           python3 - <<'PY'
-          import json, urllib.request, plistlib, re, hashlib
+          import json, urllib.request, plistlib, hashlib
           from pathlib import Path
 
           shortcut_id = 'a18e4bc4795342be8bde2e969cc48002'
