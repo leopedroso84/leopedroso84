@@ -1,0 +1,108 @@
+name: Temporary Shortcut Audit
+
+on:
+  push:
+    branches:
+      - tmp-shortcut-audit-a18e4bc4-20260830
+
+jobs:
+  audit:
+    runs-on: macos-latest
+    steps:
+      - name: Download and decode iCloud Shortcut
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - <<'PY'
+          import json, urllib.request, plistlib, re, hashlib
+          from pathlib import Path
+
+          shortcut_id = 'a18e4bc4795342be8bde2e969cc48002'
+          api = f'https://www.icloud.com/shortcuts/api/records/{shortcut_id}'
+          req = urllib.request.Request(api, headers={'User-Agent':'Mozilla/5.0'})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              meta = json.load(r)
+          print('=== ICLOUD RECORD ===')
+          print('record keys:', sorted(meta.keys()))
+
+          urls = []
+          def walk(x):
+              if isinstance(x, dict):
+                  for k,v in x.items():
+                      if k == 'downloadURL' and isinstance(v,str):
+                          urls.append(v)
+                      walk(v)
+              elif isinstance(x, list):
+                  for v in x: walk(v)
+          walk(meta)
+          if not urls:
+              raise SystemExit('No downloadURL found in iCloud record')
+          print('downloadURL count:', len(urls))
+          dl = urls[0]
+          req = urllib.request.Request(dl, headers={'User-Agent':'Mozilla/5.0'})
+          with urllib.request.urlopen(req, timeout=30) as r:
+              raw = r.read()
+          Path('shortcut.shortcut').write_bytes(raw)
+          print('bytes:', len(raw))
+          print('sha256:', hashlib.sha256(raw).hexdigest())
+          print('header:', raw[:8])
+
+          obj = plistlib.loads(raw)
+          print('\n=== TOP LEVEL ===')
+          print('type:', type(obj).__name__)
+          if isinstance(obj, dict):
+              print('keys:', sorted(obj.keys()))
+          actions = obj.get('WFWorkflowActions', []) if isinstance(obj, dict) else []
+          print('action_count:', len(actions))
+          for k in ['WFWorkflowClientVersion','WFWorkflowClientRelease','WFWorkflowMinimumClientVersion','WFWorkflowMinimumClientVersionString','WFWorkflowTypes','WFWorkflowInputContentItemClasses']:
+              if isinstance(obj,dict) and k in obj:
+                  print(f'{k}: {obj[k]!r}')
+
+          print('\n=== ACTIONS ===')
+          external_markers = []
+          trigger_markers = []
+          power_markers = []
+          radio_markers = []
+          network_markers = []
+          for i,a in enumerate(actions,1):
+              ident = a.get('WFWorkflowActionIdentifier','') if isinstance(a,dict) else ''
+              params = a.get('WFWorkflowActionParameters',{}) if isinstance(a,dict) else {}
+              print(f'[{i:02d}] {ident}')
+              try:
+                  print(json.dumps(params, ensure_ascii=False, sort_keys=True, default=str))
+              except Exception:
+                  print(repr(params))
+              s = (ident + ' ' + repr(params)).lower()
+              if any(x in s for x in ['url','http','download','contentssofurl','ssh','script','webhook','request']):
+                  external_markers.append((i,ident))
+              if any(x in s for x in ['trigger','automation','battery','wifi','network']):
+                  trigger_markers.append((i,ident))
+              if any(x in s for x in ['lowpower','power mode','pouca energia','battery']):
+                  power_markers.append((i,ident))
+              if any(x in s for x in ['cellular','mobiledata','dados celulares']):
+                  radio_markers.append((i,ident))
+              if any(x in s for x in ['wifi','wi-fi','network','rede']):
+                  network_markers.append((i,ident))
+
+          print('\n=== STATIC SAFETY SCAN ===')
+          print('external/network-call markers:', external_markers)
+          print('trigger/battery/wifi markers:', trigger_markers)
+          print('low-power markers:', power_markers)
+          print('cellular-data markers:', radio_markers)
+          print('wifi/network markers:', network_markers)
+
+          print('\n=== ALL STRINGS MATCHING IMPORTANT TERMS ===')
+          hits=[]
+          def walk_strings(x,path='root'):
+              if isinstance(x,dict):
+                  for k,v in x.items(): walk_strings(v,path+'.'+str(k))
+              elif isinstance(x,list):
+                  for j,v in enumerate(x): walk_strings(v,path+f'[{j}]')
+              elif isinstance(x,str):
+                  low=x.lower()
+                  if any(t in low for t in ['battery','bateria','wifi','wi-fi','cellular','dados','low power','pouca energia','30','29','network','rede']):
+                      hits.append((path,x))
+          walk_strings(obj)
+          for p,v in hits:
+              print(p, '=>', v)
+          PY
