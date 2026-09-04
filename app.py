@@ -273,6 +273,7 @@ async def process_job(job_id: str, url: str) -> None:
         files, logs = await extract(url, folder)
 
         if not files:
+            print(f"[extract-error] job={job_id} url={url}\n{logs[-8000:]}", flush=True)
             shutil.rmtree(folder, ignore_errors=True)
             JOBS[job_id].update(
                 status="error",
