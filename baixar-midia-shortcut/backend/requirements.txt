@@ -1,0 +1,7 @@
+fastapi==0.116.1
+uvicorn[standard]==0.35.0
+requests==2.32.5
+beautifulsoup4==4.13.5
+yt-dlp>=2026.8.0
+gallery-dl>=1.30.0
+curl-cffi>=0.13.0
