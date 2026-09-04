@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import asyncio
+import html
 import mimetypes
 import os
 import re
@@ -9,6 +10,7 @@ import subprocess
 import time
 import uuid
 from collections import defaultdict, deque
+from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -21,8 +23,9 @@ APP_NAME = "Baixar Mídia Shortcut"
 VERSION = "1.0.0"
 DATA_DIR = Path(os.getenv("DATA_DIR", "/tmp/baixar-midia"))
 DATA_DIR.mkdir(parents=True, exist_ok=True)
+
 MAX_AGE = int(os.getenv("MAX_FILE_AGE_SECONDS", "3600"))
-MAX_SECONDS = int(os.getenv("EXTRACT_TIMEOUT_SECONDS", "180"))
+EXTRACT_TIMEOUT = int(os.getenv("EXTRACT_TIMEOUT_SECONDS", "180"))
 RATE_LIMIT = int(os.getenv("RATE_LIMIT_PER_10_MIN", "20"))
 
 ALLOWED_HOSTS = (
@@ -32,8 +35,18 @@ ALLOWED_HOSTS = (
     "twitch.tv", "snapchat.com", "tumblr.com",
 )
 
-MEDIA_EXTS = {".mp4", ".mov", ".m4v", ".webm", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif"}
-_rate: dict[str, deque[float]] = defaultdict(deque)
+MEDIA_EXTS = {
+    ".mp4", ".mov", ".m4v", ".webm", ".mkv",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp", ".heic", ".heif",
+}
+
+VIDEO_FIRST_HOSTS = (
+    "youtube.com", "youtu.be", "tiktok.com", "vimeo.com",
+    "twitch.tv", "reddit.com", "redd.it",
+)
+
+JOBS: dict[str, dict] = {}
+RATE: dict[str, deque[float]] = defaultdict(deque)
 
 app = FastAPI(title=APP_NAME, version=VERSION, docs_url="/docs")
 
@@ -42,207 +55,357 @@ class ResolveRequest(BaseModel):
     url: HttpUrl
 
 
+def host_of(raw: str) -> str:
+    return (urlparse(raw).hostname or "").lower().removeprefix("www.")
+
+
 def allowed_url(raw: str) -> bool:
-    host = (urlparse(raw).hostname or "").lower().removeprefix("www.")
-    return any(host == h or host.endswith("." + h) for h in ALLOWED_HOSTS)
+    host = host_of(raw)
+    return any(host == item or host.endswith("." + item) for item in ALLOWED_HOSTS)
 
 
 def cleanup() -> None:
     now = time.time()
-    for p in DATA_DIR.iterdir():
+
+    for job_id, item in list(JOBS.items()):
+        if now - item.get("created_at", now) > MAX_AGE:
+            JOBS.pop(job_id, None)
+
+    for path in DATA_DIR.iterdir():
         try:
-            if now - p.stat().st_mtime > MAX_AGE:
-                shutil.rmtree(p, ignore_errors=True) if p.is_dir() else p.unlink(missing_ok=True)
+            if now - path.stat().st_mtime > MAX_AGE:
+                if path.is_dir():
+                    shutil.rmtree(path, ignore_errors=True)
+                else:
+                    path.unlink(missing_ok=True)
         except OSError:
             pass
 
 
-def rate_limit(ip: str) -> None:
+def enforce_rate_limit(ip: str) -> None:
     now = time.time()
-    q = _rate[ip]
-    while q and now - q[0] > 600:
-        q.popleft()
-    if len(q) >= RATE_LIMIT:
-        raise HTTPException(429, "Muitas solicitações. Aguarde alguns minutos e tente novamente.")
-    q.append(now)
+    bucket = RATE[ip]
+
+    while bucket and now - bucket[0] > 600:
+        bucket.popleft()
+
+    if len(bucket) >= RATE_LIMIT:
+        raise HTTPException(
+            429,
+            "Muitas solicitações em pouco tempo. Aguarde alguns minutos e tente novamente.",
+        )
+
+    bucket.append(now)
 
 
-def run(cmd: list[str], cwd: Path) -> tuple[int, str]:
+def run_process(command: list[str], cwd: Path) -> tuple[int, str]:
     proc = subprocess.run(
-        cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        text=True, timeout=MAX_SECONDS, check=False
+        command,
+        cwd=cwd,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        timeout=EXTRACT_TIMEOUT,
+        check=False,
     )
-    return proc.returncode, proc.stdout[-12000:]
+    return proc.returncode, proc.stdout[-15000:]
 
 
-def files_in(folder: Path) -> list[Path]:
-    result = []
-    for p in folder.rglob("*"):
-        if p.is_file() and p.suffix.lower() in MEDIA_EXTS and p.stat().st_size > 0:
-            result.append(p)
+def collect_media(folder: Path) -> list[Path]:
+    result: list[Path] = []
+
+    for path in folder.rglob("*"):
+        if (
+            path.is_file()
+            and path.suffix.lower() in MEDIA_EXTS
+            and path.stat().st_size > 0
+        ):
+            result.append(path)
+
     return sorted(result, key=lambda p: p.stat().st_mtime)
 
 
-def extract_ytdlp(url: str, folder: Path) -> tuple[list[Path], str]:
+def run_ytdlp(url: str, folder: Path) -> tuple[list[Path], str]:
     template = str(folder / "%(title).120s [%(id)s].%(ext)s")
-    cmd = [
-        "yt-dlp", "--no-playlist", "--restrict-filenames",
+
+    command = [
+        "yt-dlp",
+        "--no-playlist",
+        "--restrict-filenames",
         "--merge-output-format", "mp4",
         "-f", "bv*+ba/b",
-        "-o", template, url,
+        "-o", template,
+        url,
     ]
-    code, log = run(cmd, folder)
-    return files_in(folder), log
+
+    _, log = run_process(command, folder)
+    return collect_media(folder), log
 
 
-def extract_gallery(url: str, folder: Path) -> tuple[list[Path], str]:
-    cmd = [
+def run_gallery_dl(url: str, folder: Path) -> tuple[list[Path], str]:
+    command = [
         "gallery-dl",
         "--dest", str(folder),
         "--filename", "{filename}.{extension}",
         url,
     ]
-    code, log = run(cmd, folder)
-    return files_in(folder), log
+
+    _, log = run_process(command, folder)
+    return collect_media(folder), log
 
 
-async def extract_threads_embed(url: str, folder: Path) -> list[Path]:
-    # Fallback para post público do Threads quando houver imagem direta no embed.
-    clean = url.split("?")[0].rstrip("/")
-    embed = clean + "/embed"
+async def threads_embed_fallback(url: str, folder: Path) -> list[Path]:
+    clean_url = url.split("?")[0].rstrip("/")
+    embed_url = clean_url + "/embed"
+
     headers = {
-        "User-Agent": "facebookexternalhit/1.1 (+https://www.facebook.com/externalhit_uatext.php)",
+        "User-Agent": (
+            "facebookexternalhit/1.1 "
+            "(+https://www.facebook.com/externalhit_uatext.php)"
+        ),
         "Accept": "text/html,application/xhtml+xml",
     }
-    async with httpx.AsyncClient(follow_redirects=True, timeout=20, headers=headers) as client:
-        r = await client.get(embed)
-        if r.status_code != 200:
+
+    async with httpx.AsyncClient(
+        follow_redirects=True,
+        timeout=25,
+        headers=headers,
+    ) as client:
+        response = await client.get(embed_url)
+        if response.status_code != 200:
             return []
-        html = r.text
-        candidates = []
-        for pattern in (
+
+        page = response.text
+        candidates: list[str] = []
+
+        patterns = (
             r'<meta[^>]+property=["\']og:image["\'][^>]+content=["\']([^"\']+)',
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:image["\']',
             r'<meta[^>]+property=["\']og:video(?::url)?["\'][^>]+content=["\']([^"\']+)',
-        ):
-            candidates.extend(re.findall(pattern, html, flags=re.I))
-        out = []
-        seen = set()
-        for idx, media_url in enumerate(candidates[:10]):
-            media_url = media_url.replace("&amp;", "&")
+            r'<meta[^>]+content=["\']([^"\']+)["\'][^>]+property=["\']og:video(?::url)?["\']',
+        )
+
+        for pattern in patterns:
+            candidates.extend(re.findall(pattern, page, flags=re.I))
+
+        output: list[Path] = []
+        seen: set[str] = set()
+
+        for index, media_url in enumerate(candidates[:12], start=1):
+            media_url = html.unescape(media_url)
+
             if media_url in seen:
                 continue
             seen.add(media_url)
+
             try:
-                rr = await client.get(media_url)
-                if rr.status_code != 200 or not rr.content:
+                media_response = await client.get(media_url)
+                if media_response.status_code != 200 or not media_response.content:
                     continue
-                ctype = rr.headers.get("content-type", "").split(";")[0]
-                ext = mimetypes.guess_extension(ctype) or Path(urlparse(media_url).path).suffix or ".jpg"
-                if ext == ".jpe":
-                    ext = ".jpg"
-                path = folder / f"threads-{idx+1}{ext}"
-                path.write_bytes(rr.content)
-                if path.suffix.lower() in MEDIA_EXTS:
-                    out.append(path)
+
+                content_type = (
+                    media_response.headers.get("content-type", "")
+                    .split(";")[0]
+                    .strip()
+                )
+
+                extension = (
+                    mimetypes.guess_extension(content_type)
+                    or Path(urlparse(media_url).path).suffix
+                    or ".jpg"
+                )
+
+                if extension == ".jpe":
+                    extension = ".jpg"
+
+                destination = folder / f"threads-{index}{extension}"
+                destination.write_bytes(media_response.content)
+
+                if destination.suffix.lower() in MEDIA_EXTS:
+                    output.append(destination)
             except Exception:
                 continue
-        return out
+
+        return output
 
 
 async def extract(url: str, folder: Path) -> tuple[list[Path], str]:
-    logs = []
-    host = (urlparse(url).hostname or "").lower()
+    logs: list[str] = []
+    host = host_of(url)
 
-    # 1) yt-dlp: melhor para vídeos e áudio/vídeo combinado.
-    try:
-        found, log = await asyncio.to_thread(extract_ytdlp, url, folder)
-        logs.append("yt-dlp:\n" + log)
-        if found:
-            return found, "\n".join(logs)
-    except Exception as exc:
-        logs.append(f"yt-dlp exception: {exc}")
+    if any(host == h or host.endswith("." + h) for h in VIDEO_FIRST_HOSTS):
+        order = ("ytdlp", "gallery")
+    else:
+        order = ("gallery", "ytdlp")
 
-    # 2) gallery-dl: melhor para fotos, carrosséis e galerias.
-    try:
-        found, log = await asyncio.to_thread(extract_gallery, url, folder)
-        logs.append("gallery-dl:\n" + log)
-        if found:
-            return found, "\n".join(logs)
-    except Exception as exc:
-        logs.append(f"gallery-dl exception: {exc}")
+    for engine in order:
+        try:
+            if engine == "ytdlp":
+                files, log = await asyncio.to_thread(run_ytdlp, url, folder)
+                logs.append("yt-dlp:\n" + log)
+            else:
+                files, log = await asyncio.to_thread(run_gallery_dl, url, folder)
+                logs.append("gallery-dl:\n" + log)
 
-    # 3) Threads: fallback no embed público para imagens/vídeos diretos.
+            if files:
+                return files, "\n".join(logs)
+        except Exception as exc:
+            logs.append(f"{engine} exception: {exc}")
+
     if "threads." in host:
         try:
-            found = await extract_threads_embed(url, folder)
-            if found:
-                return found, "\n".join(logs)
+            files = await threads_embed_fallback(url, folder)
+            if files:
+                return files, "\n".join(logs)
         except Exception as exc:
             logs.append(f"threads embed exception: {exc}")
 
     return [], "\n".join(logs)
 
 
+async def process_job(job_id: str, url: str) -> None:
+    folder = DATA_DIR / job_id
+    folder.mkdir(parents=True, exist_ok=True)
+
+    JOBS[job_id]["status"] = "processing"
+
+    try:
+        files, logs = await extract(url, folder)
+
+        if not files:
+            shutil.rmtree(folder, ignore_errors=True)
+            JOBS[job_id].update(
+                status="error",
+                message=(
+                    "Não consegui extrair a mídia. O conteúdo pode ser privado, "
+                    "exigir login ou a plataforma pode ter alterado a página."
+                ),
+                debug=logs[-4000:],
+            )
+            return
+
+        JOBS[job_id].update(
+            status="done",
+            files=[str(path.relative_to(folder)) for path in files[:30]],
+        )
+    except subprocess.TimeoutExpired:
+        shutil.rmtree(folder, ignore_errors=True)
+        JOBS[job_id].update(
+            status="error",
+            message="O download ultrapassou o tempo limite. Tente novamente.",
+        )
+    except Exception as exc:
+        shutil.rmtree(folder, ignore_errors=True)
+        JOBS[job_id].update(
+            status="error",
+            message="Ocorreu um erro ao processar esta mídia.",
+            debug=str(exc)[:2000],
+        )
+
+
 @app.get("/")
 def root():
-    return {"name": APP_NAME, "version": VERSION, "status": "ok"}
+    return {
+        "name": APP_NAME,
+        "version": VERSION,
+        "status": "ok",
+    }
 
 
 @app.get("/health")
 def health():
-    return {"status": "ok", "version": VERSION}
-
-
-@app.post("/api/v1/resolve")
-async def resolve(payload: ResolveRequest, request: Request):
-    cleanup()
-    ip = request.client.host if request.client else "unknown"
-    rate_limit(ip)
-
-    raw_url = str(payload.url)
-    if not allowed_url(raw_url):
-        raise HTTPException(400, "Este domínio não está habilitado no Baixar Mídia Shortcut.")
-
-    job = uuid.uuid4().hex
-    folder = DATA_DIR / job
-    folder.mkdir(parents=True, exist_ok=True)
-
-    found, logs = await extract(raw_url, folder)
-    if not found:
-        shutil.rmtree(folder, ignore_errors=True)
-        raise HTTPException(
-            422,
-            "Não consegui extrair a mídia. O conteúdo pode ser privado, exigir login ou a plataforma pode ter mudado."
-        )
-
-    base = str(request.base_url).rstrip("/")
-    items = []
-    for p in found[:30]:
-        items.append({
-            "name": p.name,
-            "url": f"{base}/files/{job}/{p.name}",
-            "type": "media",
-        })
-
     return {
         "status": "ok",
         "version": VERSION,
-        "count": len(items),
-        "items": items,
     }
 
 
-@app.get("/files/{job}/{filename}")
-def get_file(job: str, filename: str):
-    if not re.fullmatch(r"[0-9a-f]{32}", job):
+@app.post("/api/v1/jobs")
+async def create_job(payload: ResolveRequest, request: Request):
+    cleanup()
+
+    ip = request.client.host if request.client else "unknown"
+    enforce_rate_limit(ip)
+
+    raw_url = str(payload.url)
+
+    if not allowed_url(raw_url):
+        raise HTTPException(
+            400,
+            "Este domínio não está habilitado no Baixar Mídia Shortcut.",
+        )
+
+    job_id = uuid.uuid4().hex
+
+    JOBS[job_id] = {
+        "id": job_id,
+        "status": "queued",
+        "url": raw_url,
+        "created_at": time.time(),
+    }
+
+    asyncio.create_task(process_job(job_id, raw_url))
+
+    return {
+        "status": "queued",
+        "jobId": job_id,
+        "version": VERSION,
+    }
+
+
+@app.get("/api/v1/jobs/{job_id}")
+def job_status(job_id: str, request: Request):
+    cleanup()
+
+    if not re.fullmatch(r"[0-9a-f]{32}", job_id):
         raise HTTPException(404)
-    safe = Path(filename).name
-    path = DATA_DIR / job / safe
-    if not path.exists() or not path.is_file():
-        # gallery-dl pode criar subpastas; procura somente pelo basename dentro do job.
-        matches = [p for p in (DATA_DIR / job).rglob(safe) if p.is_file()]
-        if not matches:
-            raise HTTPException(404)
-        path = matches[0]
+
+    job = JOBS.get(job_id)
+    if not job:
+        raise HTTPException(404, "Solicitação não encontrada ou expirada.")
+
+    response = {
+        "status": job["status"],
+        "jobId": job_id,
+        "version": VERSION,
+    }
+
+    if job["status"] == "error":
+        response["message"] = job.get(
+            "message",
+            "Não foi possível baixar esta mídia.",
+        )
+
+    if job["status"] == "done":
+        base = str(request.base_url).rstrip("/")
+        response["items"] = [
+            {
+                "name": Path(relative).name,
+                "url": f"{base}/files/{job_id}/{relative}",
+                "type": "media",
+            }
+            for relative in job.get("files", [])
+        ]
+        response["count"] = len(response["items"])
+
+    return response
+
+
+@app.get("/files/{job_id}/{file_path:path}")
+def download_file(job_id: str, file_path: str):
+    if not re.fullmatch(r"[0-9a-f]{32}", job_id):
+        raise HTTPException(404)
+
+    root = (DATA_DIR / job_id).resolve()
+    path = (root / file_path).resolve()
+
+    if root not in path.parents or not path.is_file():
+        raise HTTPException(404)
+
     media_type, _ = mimetypes.guess_type(path.name)
-    return FileResponse(path, filename=path.name, media_type=media_type or "application/octet-stream")
+
+    return FileResponse(
+        path,
+        filename=path.name,
+        media_type=media_type or "application/octet-stream",
+    )
