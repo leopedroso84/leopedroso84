@@ -1,0 +1,7 @@
+{
+  "project": "Baixar Mídia Shortcut",
+  "version": "1.0.0",
+  "api_base": "https://www.socialdownloader.space",
+  "backend": "community-fallback",
+  "notes": "Fallback público open-source. Quando o backend pessoal estiver hospedado, basta trocar api_base."
+}
